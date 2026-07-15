@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -25,10 +29,12 @@ jobs:
       - name: Analyze package
         run: flutter analyze
       - name: Test package
-        run: flutter test
+        run: flutter test --coverage --test-randomize-ordering-seed random
       - name: Test example
         working-directory: example
-        run: flutter test
+        run: flutter test --test-randomize-ordering-seed random
+      - name: Validate package publication
+        run: flutter pub publish --dry-run
       - name: Build web showcase
         working-directory: example
         run: flutter build web --release

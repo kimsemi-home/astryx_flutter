@@ -5,6 +5,7 @@ import '../hateoas/hateoas_adapter.dart';
 import '../rest/rest_adapter.dart';
 import '../sse/sse_adapter.dart';
 import 'transport.dart';
+import 'transport_middleware.dart';
 import 'transport_registry.dart';
 
 /// Convenience composition root for the four built-in protocol adapters.
@@ -19,6 +20,7 @@ class AstryxFramework {
     http.Client? sharedClient,
     Map<String, String> defaultHeaders = const {},
     HeaderProvider? headerProvider,
+    List<TransportMiddleware> middleware = const [],
   }) {
     return AstryxFramework(
       registry: TransportRegistry([
@@ -27,24 +29,28 @@ class AstryxFramework {
           client: sharedClient,
           defaultHeaders: defaultHeaders,
           headerProvider: headerProvider,
+          middleware: middleware,
         ),
         GraphqlAdapter(
           endpoint: graphqlEndpoint,
           client: sharedClient,
           defaultHeaders: defaultHeaders,
           headerProvider: headerProvider,
+          middleware: middleware,
         ),
         SseAdapter(
           baseUri: sseBaseUri ?? restBaseUri,
           client: sharedClient,
           defaultHeaders: defaultHeaders,
           headerProvider: headerProvider,
+          middleware: middleware,
         ),
         HateoasAdapter(
           baseUri: hateoasBaseUri ?? restBaseUri,
           client: sharedClient,
           defaultHeaders: defaultHeaders,
           headerProvider: headerProvider,
+          middleware: middleware,
         ),
       ]),
     );

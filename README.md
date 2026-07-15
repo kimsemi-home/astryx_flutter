@@ -25,7 +25,7 @@ format.
 | GraphQL | query/mutation envelopes and separate HTTP/GraphQL errors |
 | SSE | incremental parser, `Last-Event-ID`, server retry, reconnection |
 | HATEOAS | HAL `_links`, generic `links`, URI templates, relation following |
-| Runtime | capability-aware adapter registry and composition root |
+| Runtime | capability-aware registry, middleware, cancellation, composition root |
 
 ## Quick start
 
@@ -56,6 +56,7 @@ final framework = AstryxFramework.standard(
   graphqlEndpoint: Uri.parse('https://api.example.com/graphql'),
   defaultHeaders: {'x-client': 'my-app'},
   headerProvider: () async => {'authorization': 'Bearer $token'},
+  middleware: [CorrelationIdMiddleware()],
 );
 
 final users = await framework.rest.get('/users');
@@ -82,6 +83,33 @@ framework.close();
 
 All adapters accept an external `http.Client`, so applications can select
 platform-native clients, test doubles, retry clients, or tracing wrappers.
+
+## Cross-protocol behavior
+
+Middleware runs in registration order for REST, GraphQL, SSE, and HATEOAS
+without erasing their protocol-specific APIs:
+
+```dart
+class CorrelationIdMiddleware extends TransportMiddleware {
+  @override
+  Future<TransportResponse> intercept(
+    TransportRequest request,
+    TransportNext next,
+  ) {
+    return next(request.copyWith(headers: {
+      ...request.headers,
+      'x-correlation-id': createCorrelationId(),
+    }));
+  }
+}
+```
+
+Requests also accept an `abortTrigger` compatible with
+`package:http`'s abortable request lifecycle. SSE can use constant, linear, or
+exponential reconnect policies and never retries an intentional abort.
+
+Decoded payloads remain application-owned through `TransportResponse.decode`,
+`GraphqlResponse.parseData`, and `HypermediaDocument.embeddedList`.
 
 ## Atomic Design
 
@@ -112,6 +140,7 @@ not make external network calls.
 - [Architecture](doc/architecture.md)
 - [Transport guide](doc/transports.md)
 - [Astryx token mapping and provenance](doc/astryx-mapping.md)
+- [Ecosystem learnings and design decisions](doc/ecosystem-learnings.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 

@@ -13,6 +13,14 @@ void main() {
     );
   });
 
+  test('named atom constructors preserve their semantic variants', () {
+    const badge = AstryxBadge.success('Ready');
+    const button = AstryxButton.ghost(label: 'Skip', onPressed: null);
+
+    expect(badge.tone, AstryxBadgeTone.success);
+    expect(button.variant, AstryxButtonVariant.ghost);
+  });
+
   testWidgets('composes and navigates the five atomic layers', (tester) async {
     final framework = AstryxFramework.standard(
       restBaseUri: Uri.parse('https://api.example.com/'),

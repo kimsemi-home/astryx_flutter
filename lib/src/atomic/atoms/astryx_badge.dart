@@ -15,6 +15,31 @@ class AstryxBadge extends StatelessWidget {
     this.icon,
   });
 
+  const AstryxBadge.info(String label, {Key? key, IconData? icon})
+      : this(label, key: key, tone: AstryxBadgeTone.info, icon: icon);
+
+  const AstryxBadge.success(String label, {Key? key, IconData? icon})
+      : this(label, key: key, tone: AstryxBadgeTone.success, icon: icon);
+
+  const AstryxBadge.warning(String label, {Key? key, IconData? icon})
+      : this(label, key: key, tone: AstryxBadgeTone.warning, icon: icon);
+
+  const AstryxBadge.error(String label, {Key? key, IconData? icon})
+      : this(label, key: key, tone: AstryxBadgeTone.error, icon: icon);
+
+  const AstryxBadge.categorical(
+    String label, {
+    required AstryxCategory category,
+    Key? key,
+    IconData? icon,
+  }) : this(
+          label,
+          key: key,
+          tone: AstryxBadgeTone.categorical,
+          category: category,
+          icon: icon,
+        );
+
   final String label;
   final AstryxBadgeTone tone;
   final AstryxCategory category;

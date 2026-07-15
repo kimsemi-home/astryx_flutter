@@ -2,6 +2,7 @@ import 'package:http/http.dart' as http;
 import 'package:meta/meta.dart';
 
 import '../core/transport.dart';
+import '../core/transport_middleware.dart';
 import '../rest/rest_adapter.dart';
 
 /// A relation from a HAL or generic HATEOAS document.
@@ -16,10 +17,7 @@ class HypermediaLink {
     this.type,
   });
 
-  factory HypermediaLink.fromJson(
-    String relation,
-    Map<String, Object?> json,
-  ) {
+  factory HypermediaLink.fromJson(String relation, Map<String, Object?> json) {
     final method = json['method']?.toString();
     return HypermediaLink(
       relation: relation,
@@ -103,10 +101,7 @@ class HypermediaDocument {
         final values = value is List ? value : [value];
         for (final item in values.whereType<Map>()) {
           links.putIfAbsent(relation, () => []).add(
-                HypermediaLink.fromJson(
-                  relation,
-                  item.cast<String, Object?>(),
-                ),
+                HypermediaLink.fromJson(relation, item.cast<String, Object?>()),
               );
         }
       }
@@ -143,6 +138,29 @@ class HypermediaDocument {
 
   List<HypermediaLink> linksFor(String relation) => links[relation] ?? const [];
 
+  /// Converts the complete document into an application-owned type.
+  T decode<T>(T Function(Map<String, Object?> source) decoder) {
+    return decoder(source);
+  }
+
+  /// Decodes a HAL embedded relation into an immutable typed list.
+  List<T> embeddedList<T>(
+    String relation,
+    T Function(Map<String, Object?> item) decoder,
+  ) {
+    final value = embedded[relation];
+    final items = value is List
+        ? value
+        : value is Map
+            ? [value]
+            : const [];
+    return List.unmodifiable(
+      items.whereType<Map>().map(
+            (item) => decoder(item.cast<String, Object?>()),
+          ),
+    );
+  }
+
   HypermediaLink requireLink(String relation, {int index = 0}) {
     final matches = linksFor(relation);
     if (index < 0 || index >= matches.length) {
@@ -159,8 +177,10 @@ class HateoasAdapter extends TransportAdapter {
     http.Client? client,
     Map<String, String> defaultHeaders = const {},
     HeaderProvider? headerProvider,
+    List<TransportMiddleware> middleware = const [],
   })  : _client = client ?? http.Client(),
-        _ownsClient = client == null {
+        _ownsClient = client == null,
+        _pipeline = TransportMiddlewarePipeline(middleware) {
     _rest = RestAdapter(
       baseUri: baseUri,
       client: _client,
@@ -176,6 +196,7 @@ class HateoasAdapter extends TransportAdapter {
   final Uri? baseUri;
   final http.Client _client;
   final bool _ownsClient;
+  final TransportMiddlewarePipeline _pipeline;
   late final RestAdapter _rest;
 
   @override
@@ -189,6 +210,10 @@ class HateoasAdapter extends TransportAdapter {
 
   @override
   Future<TransportResponse> send(TransportRequest request) {
+    return _pipeline.send(request, _send);
+  }
+
+  Future<TransportResponse> _send(TransportRequest request) {
     return _rest.send(request.copyWith(protocol: protocol));
   }
 
@@ -203,6 +228,7 @@ class HateoasAdapter extends TransportAdapter {
     Map<String, Object?> variables = const {},
     Map<String, String> headers = const {},
     Object? body,
+    Future<void>? abortTrigger,
   }) {
     final link = document.requireLink(relation, index: index);
     return send(
@@ -213,6 +239,7 @@ class HateoasAdapter extends TransportAdapter {
         headers: headers,
         body: body,
         metadata: {'relation': relation},
+        abortTrigger: abortTrigger,
       ),
     );
   }

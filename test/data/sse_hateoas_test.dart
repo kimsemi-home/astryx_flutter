@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:astryx_flutter/astryx_flutter.dart';
@@ -36,6 +37,98 @@ void main() {
     final event = await adapter.connect('events', reconnect: false).single;
 
     expect(event.data, 'ready');
+  });
+
+  test('SSE backoff policies support constant, linear, and exponential delay',
+      () {
+    const constant = SseReconnectPolicy(
+      initialDelay: Duration(seconds: 2),
+    );
+    const linear = SseReconnectPolicy(
+      initialDelay: Duration(seconds: 2),
+      mode: SseBackoffMode.linear,
+    );
+    const exponential = SseReconnectPolicy(
+      initialDelay: Duration(seconds: 2),
+      mode: SseBackoffMode.exponential,
+      maxDelay: Duration(seconds: 10),
+    );
+
+    expect(constant.delayForAttempt(3), const Duration(seconds: 2));
+    expect(linear.delayForAttempt(2), const Duration(seconds: 6));
+    expect(exponential.delayForAttempt(2), const Duration(seconds: 8));
+    expect(exponential.delayForAttempt(3), const Duration(seconds: 10));
+    expect(
+      () => const SseReconnectPolicy(
+        initialDelay: Duration(seconds: -1),
+      ).delayForAttempt(0),
+      throwsArgumentError,
+    );
+  });
+
+  test('SseAdapter reconnects with callback after a failed handshake',
+      () async {
+    var requests = 0;
+    final reconnects = <SseReconnectAttempt>[];
+    final adapter = SseAdapter(
+      baseUri: Uri.parse('https://api.example.com/'),
+      client: MockClient.streaming((_, __) async {
+        requests += 1;
+        if (requests == 1) {
+          return http.StreamedResponse(const Stream.empty(), 503);
+        }
+        return http.StreamedResponse(
+          Stream.value(utf8.encode('data: ready\n\n')),
+          200,
+        );
+      }),
+    );
+
+    final event = await adapter
+        .connect(
+          '/events',
+          reconnectPolicy: const SseReconnectPolicy(
+            maxAttempts: 1,
+            initialDelay: Duration.zero,
+          ),
+          onReconnect: reconnects.add,
+        )
+        .first;
+
+    expect(event.data, 'ready');
+    expect(requests, 2);
+    expect(reconnects.single.attempt, 1);
+    expect(reconnects.single.delay, Duration.zero);
+  });
+
+  test('SseAdapter aborts a reconnect delay without another attempt', () async {
+    var requests = 0;
+    final reconnectScheduled = Completer<void>();
+    final abort = Completer<void>();
+    final adapter = SseAdapter(
+      baseUri: Uri.parse('https://api.example.com/'),
+      client: MockClient.streaming((_, __) async {
+        requests += 1;
+        return http.StreamedResponse(const Stream.empty(), 503);
+      }),
+    );
+
+    final pending = adapter
+        .connect(
+          '/events',
+          abortTrigger: abort.future,
+          reconnectPolicy: const SseReconnectPolicy(
+            maxAttempts: 3,
+            initialDelay: Duration(days: 1),
+          ),
+          onReconnect: (_) => reconnectScheduled.complete(),
+        )
+        .first;
+    await reconnectScheduled.future;
+    abort.complete();
+
+    await expectLater(pending, throwsA(isA<TransportAbortedException>()));
+    expect(requests, 1);
   });
 
   test('parses HAL and follows a templated relation', () async {
@@ -92,5 +185,24 @@ void main() {
     expect(update.method, HttpMethod.patch);
     expect(update.resolve(document.baseUri).toString(),
         'https://api.example.com/items/3');
+  });
+
+  test('decodes HAL embedded resources without owning domain models', () {
+    final document = HypermediaDocument.fromJson(
+      {
+        '_embedded': {
+          'orders': [
+            {'id': 'one'},
+            {'id': 'two'},
+          ],
+        },
+      },
+      baseUri: Uri.parse('https://api.example.com/orders'),
+    );
+
+    final ids = document.embeddedList('orders', (item) => item['id'] as String);
+
+    expect(ids, ['one', 'two']);
+    expect(() => ids.add('three'), throwsUnsupportedError);
   });
 }

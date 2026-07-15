@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../core/transport.dart';
+import '../core/transport_middleware.dart';
 
 typedef HeaderProvider = Future<Map<String, String>> Function();
 
@@ -13,15 +14,18 @@ class RestAdapter extends TransportAdapter {
     http.Client? client,
     this.defaultHeaders = const {},
     this.headerProvider,
+    List<TransportMiddleware> middleware = const [],
     bool? ownsClient,
   })  : _client = client ?? http.Client(),
-        _ownsClient = ownsClient ?? client == null;
+        _ownsClient = ownsClient ?? client == null,
+        _pipeline = TransportMiddlewarePipeline(middleware);
 
   final Uri? baseUri;
   final Map<String, String> defaultHeaders;
   final HeaderProvider? headerProvider;
   final http.Client _client;
   final bool _ownsClient;
+  final TransportMiddlewarePipeline _pipeline;
 
   @override
   AstryxProtocol get protocol => AstryxProtocol.rest;
@@ -37,6 +41,7 @@ class RestAdapter extends TransportAdapter {
     Map<String, String> headers = const {},
     Map<String, Object?> queryParameters = const {},
     Object? body,
+    Future<void>? abortTrigger,
   }) {
     final uri = path is Uri ? path : Uri.parse(path.toString());
     return send(
@@ -47,6 +52,7 @@ class RestAdapter extends TransportAdapter {
         headers: headers,
         queryParameters: queryParameters,
         body: body,
+        abortTrigger: abortTrigger,
       ),
     );
   }
@@ -55,11 +61,13 @@ class RestAdapter extends TransportAdapter {
     Object path, {
     Map<String, String> headers = const {},
     Map<String, Object?> queryParameters = const {},
+    Future<void>? abortTrigger,
   }) =>
       request(
         path,
         headers: headers,
         queryParameters: queryParameters,
+        abortTrigger: abortTrigger,
       );
 
   Future<TransportResponse> post(
@@ -67,6 +75,7 @@ class RestAdapter extends TransportAdapter {
     Map<String, String> headers = const {},
     Map<String, Object?> queryParameters = const {},
     Object? body,
+    Future<void>? abortTrigger,
   }) =>
       request(
         path,
@@ -74,10 +83,15 @@ class RestAdapter extends TransportAdapter {
         headers: headers,
         queryParameters: queryParameters,
         body: body,
+        abortTrigger: abortTrigger,
       );
 
   @override
-  Future<TransportResponse> send(TransportRequest request) async {
+  Future<TransportResponse> send(TransportRequest request) {
+    return _pipeline.send(request, _send);
+  }
+
+  Future<TransportResponse> _send(TransportRequest request) async {
     final uri = _resolveUri(request.uri, request.queryParameters);
     final dynamicHeaders = await headerProvider?.call() ?? const {};
     final headers = <String, String>{
@@ -85,7 +99,11 @@ class RestAdapter extends TransportAdapter {
       ...dynamicHeaders,
       ...request.headers,
     };
-    final httpRequest = http.Request(request.method.wireName, uri);
+    final httpRequest = http.AbortableRequest(
+      request.method.wireName,
+      uri,
+      abortTrigger: request.abortTrigger,
+    );
     httpRequest.headers.addAll(headers);
     _writeBody(httpRequest, request.body);
 
@@ -101,6 +119,12 @@ class RestAdapter extends TransportAdapter {
         headers: streamed.headers,
         body: decoded,
         rawBody: rawBody,
+      );
+    } on http.RequestAbortedException catch (error) {
+      throw TransportAbortedException(
+        protocol: request.protocol,
+        uri: uri,
+        cause: error,
       );
     } catch (error) {
       if (error is TransportException) rethrow;

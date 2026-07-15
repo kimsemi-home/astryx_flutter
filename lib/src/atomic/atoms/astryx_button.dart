@@ -15,6 +15,52 @@ class AstryxButton extends StatelessWidget {
     this.variant = AstryxButtonVariant.primary,
   });
 
+  const AstryxButton.primary({
+    required String label,
+    required VoidCallback? onPressed,
+    Key? key,
+    IconData? icon,
+  }) : this(label: label, onPressed: onPressed, key: key, icon: icon);
+
+  const AstryxButton.secondary({
+    required String label,
+    required VoidCallback? onPressed,
+    Key? key,
+    IconData? icon,
+  }) : this(
+          label: label,
+          onPressed: onPressed,
+          key: key,
+          icon: icon,
+          variant: AstryxButtonVariant.secondary,
+        );
+
+  const AstryxButton.destructive({
+    required String label,
+    required VoidCallback? onPressed,
+    Key? key,
+    IconData? icon,
+  }) : this(
+          label: label,
+          onPressed: onPressed,
+          key: key,
+          icon: icon,
+          variant: AstryxButtonVariant.destructive,
+        );
+
+  const AstryxButton.ghost({
+    required String label,
+    required VoidCallback? onPressed,
+    Key? key,
+    IconData? icon,
+  }) : this(
+          label: label,
+          onPressed: onPressed,
+          key: key,
+          icon: icon,
+          variant: AstryxButtonVariant.ghost,
+        );
+
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
