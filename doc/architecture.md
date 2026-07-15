@@ -9,6 +9,8 @@ flowchart LR
     App["Flutter application"] --> Page["Pages / Templates"]
     Page --> UI["Organisms / Molecules / Atoms"]
     UI --> Theme["AstryxPalette ThemeExtension"]
+    Meta["Evidence policy JSON"] --> Generated["Generated Dart contract"]
+    Generated --> UI
     App --> Runtime["AstryxFramework"]
     Runtime --> Registry["TransportRegistry"]
     Registry --> REST["RestAdapter"]
@@ -31,9 +33,15 @@ flowchart LR
 - **Organisms** arrange molecules and react to available width.
 - **Templates** own layout and navigation slots.
 - **Pages** bind real registry state to templates and organisms.
+- **Generated contracts** bind reviewable evidence-state JSON to reusable
+  status and gate widgets. Only `passed` can permit declared open-loop work.
 
 The public API exports all levels so consumers are not forced to adopt the
 showcase page or dashboard navigation.
+
+The generated contract is checked in so downstream applications compile
+without running a builder. CI verifies exact source/output synchronization and
+attests both sides with SHA-256; see [Evidence metaprogramming](metaprogramming.md).
 
 ## Transport axis
 

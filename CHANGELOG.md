@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+- Generate evidence-state contracts deterministically from public-safe JSON.
+- Add reusable evidence badges and open-loop gate cards.
+- Reserve mobile navigation clearance in responsive showcase pages.
+- Emit and enforce hash-bound metaprogramming and public CI attestations.
+
 ## 0.1.0
 
 - Port Astryx neutral light/dark semantic and categorical tokens.

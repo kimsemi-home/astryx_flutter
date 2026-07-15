@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "contract": "astryx.evidence-state.v1",
+  "states": [
+    {
+      "id": "passed",
+      "label": "Evidence passed",
+      "summary": "All declared criteria are satisfied.",
+      "tone": "success",
+      "permits_open_loop": true,
+      "order": 10
+    },
+    {
+      "id": "pending",
+      "label": "Evidence pending",
+      "summary": "Required evidence has not arrived yet.",
+      "tone": "info",
+      "permits_open_loop": false,
+      "order": 20
+    },
+    {
+      "id": "blocked",
+      "label": "Evidence blocked",
+      "summary": "At least one declared criterion failed.",
+      "tone": "error",
+      "permits_open_loop": false,
+      "order": 30
+    },
+    {
+      "id": "expired",
+      "label": "Evidence expired",
+      "summary": "The evidence window or execution lease expired.",
+      "tone": "warning",
+      "permits_open_loop": false,
+      "order": 40
+    },
+    {
+      "id": "contradicted",
+      "label": "Evidence contradicted",
+      "summary": "New evidence invalidated the prior decision.",
+      "tone": "error",
+      "permits_open_loop": false,
+      "order": 50
+    }
+  ]
+}

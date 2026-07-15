@@ -7,7 +7,7 @@ Flutter `ThemeExtension`, organizes reusable widgets with **Atomic Design**, and
 offers one runtime registry for **REST, GraphQL, Server-Sent Events, and
 HATEOAS**.
 
-> Experimental `0.1.0`. This is an independent community project, not an
+> Experimental `0.2.0`. This is an independent community project, not an
 > official Meta or Astryx Flutter port.
 
 ## Why this shape?
@@ -21,6 +21,8 @@ format.
 | --- | --- |
 | Theme | Astryx neutral light/dark semantic and categorical tokens |
 | Atomic UI | atoms → molecules → organisms → templates → pages |
+| Evidence UI | generated states, evidence badges, and open-loop gate cards |
+| Metaprogramming | JSON source → deterministic Dart + SHA-256 attestation |
 | REST | injectable `package:http` client, JSON decoding, dynamic headers |
 | GraphQL | query/mutation envelopes and separate HTTP/GraphQL errors |
 | SSE | incremental parser, `Last-Event-ID`, server retry, reconnection |
@@ -36,6 +38,7 @@ dependencies:
   astryx_flutter:
     git:
       url: https://github.com/kimsemi-home/astryx_flutter.git
+      ref: <full-reviewed-commit-sha>
 ```
 
 Install the theme at the app root:
@@ -87,8 +90,8 @@ platform-native clients, test doubles, retry clients, or tracing wrappers.
 
 ```text
 lib/src/atomic/
-├── atoms/       badge, button, status dot, surface
-├── molecules/   metric card, protocol tile
+├── atoms/       badge, button, evidence badge, status dot, surface
+├── molecules/   evidence gate card, metric card, protocol tile
 ├── organisms/   responsive transport board
 ├── templates/   responsive dashboard shell
 └── pages/       runnable framework showcase
@@ -96,6 +99,10 @@ lib/src/atomic/
 
 The public library exports each layer. Product code can stop at atoms, assemble
 its own organisms, or use the complete showcase as a reference implementation.
+
+Evidence policy is not hard-coded in widgets. It is generated from
+`meta/evidence_states.json`; only a passed evidence state can release declared
+open-loop steps. See the [metaprogramming and CI evidence guide](doc/metaprogramming.md).
 
 ## Run the showcase
 
@@ -110,6 +117,7 @@ not make external network calls.
 ## Architecture and guides
 
 - [Architecture](doc/architecture.md)
+- [Evidence metaprogramming and CI](doc/metaprogramming.md)
 - [Transport guide](doc/transports.md)
 - [Astryx token mapping and provenance](doc/astryx-mapping.md)
 - [Contributing](CONTRIBUTING.md)
@@ -119,7 +127,9 @@ not make external network calls.
 
 ```sh
 flutter pub get
-dart format --output=none --set-exit-if-changed .
+dart run tool/generate_evidence_contract.dart --check \
+  --evidence build/evidence/metaprogramming.json
+dart format --output=none --set-exit-if-changed lib test tool example/lib example/test
 flutter analyze
 flutter test
 
@@ -129,12 +139,18 @@ flutter test
 flutter build web --release
 ```
 
+Public CI runs the same graph, writes `build/evidence/ci-attestation.json`,
+uploads the JSON evidence, then recomputes every recorded hash before the final
+evidence gate can pass.
+
 ## 한국어 요약
 
 Astryx neutral 디자인 토큰을 Flutter 테마로 옮기고, UI는 Atomic Design
 5단계로 구성했습니다. 데이터 계층은 REST·GraphQL·SSE·HATEOAS를 하나의
 registry에서 선택할 수 있지만 각 프로토콜의 의미는 억지로 동일하게 만들지
-않습니다. 앱에서는 필요한 adapter만 교체하거나 추가하면 됩니다.
+않습니다. 증적 상태는 JSON에서 Dart로 결정적으로 생성되며, 기준에 합격한
+상태만 선언된 개방루프 단계를 열 수 있습니다. 앱에서는 필요한 adapter만
+교체하거나 추가하면 됩니다.
 
 ## Attribution
 
