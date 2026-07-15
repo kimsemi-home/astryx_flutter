@@ -1,6 +1,6 @@
 name: astryx_flutter
 description: Astryx-inspired atomic Flutter UI and pluggable REST, GraphQL, SSE, and HATEOAS transports.
-version: 0.1.0
+version: 0.2.0
 homepage: https://github.com/kimsemi-home/astryx_flutter
 repository: https://github.com/kimsemi-home/astryx_flutter
 issue_tracker: https://github.com/kimsemi-home/astryx_flutter/issues

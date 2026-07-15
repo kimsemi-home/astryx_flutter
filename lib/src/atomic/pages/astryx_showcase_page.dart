@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../data/core/transport_registry.dart';
+import '../../generated/astryx_evidence_contract.g.dart';
 import '../../theme/astryx_palette.dart';
 import '../../theme/astryx_tokens.dart';
 import '../atoms/astryx_badge.dart';
 import '../atoms/astryx_button.dart';
+import '../atoms/astryx_evidence_badge.dart';
 import '../atoms/astryx_status_dot.dart';
 import '../atoms/astryx_surface.dart';
+import '../molecules/astryx_evidence_gate_card.dart';
 import '../molecules/astryx_metric_card.dart';
 import '../organisms/astryx_transport_board.dart';
 import '../templates/astryx_dashboard_template.dart';
@@ -172,7 +175,7 @@ class _AstryxShowcasePageState extends State<AstryxShowcasePage> {
                     icon: Icons.auto_awesome_rounded,
                   ),
                   AstryxBadge(
-                    'v0.1.0',
+                    'v0.2.0',
                     tone: AstryxBadgeTone.neutral,
                   ),
                 ],
@@ -338,6 +341,35 @@ class _AstryxShowcasePageState extends State<AstryxShowcasePage> {
         ),
         const SizedBox(height: 12),
         _catalogSection(
+          title: 'Generated evidence states',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final state in AstryxEvidenceState.values)
+                    AstryxEvidenceBadge(state: state),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const AstryxEvidenceGateCard(
+                title: 'Publishing readiness',
+                state: AstryxEvidenceState.passed,
+                summary: 'Rights, duplication, layout, and policy criteria '
+                    'are bound to this decision.',
+                evidenceDigest:
+                    'sha256:8e614ba71d43c3e0f57d936c9378f17087e13c76',
+                passedCriteria: 4,
+                totalCriteria: 4,
+                releasedSteps: ['render', 'schedule'],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _catalogSection(
           title: 'Molecules → organisms',
           child: AstryxTransportBoard(adapters: widget.registry.adapters),
         ),
@@ -435,10 +467,14 @@ class _ScrollablePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 700;
+    final horizontal = compact ? 16.0 : 32.0;
     return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(
-        horizontal: MediaQuery.sizeOf(context).width >= 700 ? 32 : 16,
-        vertical: 28,
+      padding: EdgeInsets.fromLTRB(
+        horizontal,
+        28,
+        horizontal,
+        compact ? 112 : 28,
       ),
       child: Center(
         child: ConstrainedBox(
