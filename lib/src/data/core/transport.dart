@@ -41,6 +41,7 @@ class TransportRequest {
     this.body,
     this.operation,
     this.metadata = const {},
+    this.abortTrigger,
   });
 
   final AstryxProtocol protocol;
@@ -54,6 +55,9 @@ class TransportRequest {
   final String? operation;
   final Map<String, Object?> metadata;
 
+  /// Completing this future asks compatible clients to abort the request.
+  final Future<void>? abortTrigger;
+
   TransportRequest copyWith({
     AstryxProtocol? protocol,
     Uri? uri,
@@ -63,6 +67,7 @@ class TransportRequest {
     Object? body,
     String? operation,
     Map<String, Object?>? metadata,
+    Future<void>? abortTrigger,
   }) {
     return TransportRequest(
       protocol: protocol ?? this.protocol,
@@ -73,6 +78,7 @@ class TransportRequest {
       body: body ?? this.body,
       operation: operation ?? this.operation,
       metadata: metadata ?? this.metadata,
+      abortTrigger: abortTrigger ?? this.abortTrigger,
     );
   }
 }
@@ -99,6 +105,9 @@ class TransportResponse {
   final Map<String, Object?> metadata;
 
   bool get isSuccess => statusCode >= 200 && statusCode < 300;
+
+  /// Converts the decoded response body into an application-owned type.
+  T decode<T>(T Function(Object? body) decoder) => decoder(body);
 
   TransportResponse ensureSuccess() {
     if (!isSuccess) {
@@ -192,4 +201,13 @@ class TransportException implements Exception {
     final status = statusCode == null ? '' : ' (HTTP $statusCode)';
     return 'TransportException[$protocol]$status: $message';
   }
+}
+
+/// A request intentionally stopped through [TransportRequest.abortTrigger].
+class TransportAbortedException extends TransportException {
+  const TransportAbortedException({
+    required super.protocol,
+    super.uri,
+    super.cause,
+  }) : super('Request was aborted.');
 }

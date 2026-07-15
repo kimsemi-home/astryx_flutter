@@ -31,6 +31,7 @@ void main() {
           captured.url.toString(), 'https://api.example.com/v1/users?page=2');
       expect(captured.headers['x-client'], 'astryx');
       expect(response.requireJsonObject(), {'ok': true});
+      expect(response.decode((body) => (body! as Map)['ok']), isTrue);
       expect(response.isSuccess, isTrue);
     });
 
@@ -85,6 +86,7 @@ void main() {
       expect(body['variables'], {'locale': 'ko-KR'});
       expect(result.hasErrors, isTrue);
       expect(result.errors.single.message, 'Not signed in');
+      expect(result.parseData((data) => data['viewer']), isNull);
     });
   });
 }

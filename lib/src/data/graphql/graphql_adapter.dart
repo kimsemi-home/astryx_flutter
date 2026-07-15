@@ -2,6 +2,7 @@ import 'package:http/http.dart' as http;
 import 'package:meta/meta.dart';
 
 import '../core/transport.dart';
+import '../core/transport_middleware.dart';
 import '../rest/rest_adapter.dart';
 
 /// A typed GraphQL-over-HTTP operation.
@@ -12,12 +13,14 @@ class GraphqlOperation {
     this.variables = const {},
     this.operationName,
     this.headers = const {},
+    this.abortTrigger,
   });
 
   final String document;
   final Map<String, Object?> variables;
   final String? operationName;
   final Map<String, String> headers;
+  final Future<void>? abortTrigger;
 
   Map<String, Object?> toJson() => {
         'query': document,
@@ -83,6 +86,21 @@ class GraphqlResponse {
   final Map<String, Object?> extensions;
 
   bool get hasErrors => errors.isNotEmpty;
+
+  /// Converts the GraphQL `data` object into an application-owned type.
+  T parseData<T>(T Function(Map<String, Object?> data) parser) {
+    final value = data;
+    if (value == null) {
+      throw TransportException(
+        'Expected a GraphQL data object.',
+        protocol: AstryxProtocol.graphql,
+        uri: transport.request.uri,
+        statusCode: transport.statusCode,
+        responseBody: transport.rawBody,
+      );
+    }
+    return parser(value);
+  }
 }
 
 /// GraphQL query/mutation adapter with no widget or cache lock-in.
@@ -92,8 +110,10 @@ class GraphqlAdapter extends TransportAdapter {
     http.Client? client,
     this.defaultHeaders = const {},
     HeaderProvider? headerProvider,
+    List<TransportMiddleware> middleware = const [],
   })  : _client = client ?? http.Client(),
-        _ownsClient = client == null {
+        _ownsClient = client == null,
+        _pipeline = TransportMiddlewarePipeline(middleware) {
     _rest = RestAdapter(
       client: _client,
       ownsClient: false,
@@ -106,6 +126,7 @@ class GraphqlAdapter extends TransportAdapter {
   final Map<String, String> defaultHeaders;
   final http.Client _client;
   final bool _ownsClient;
+  final TransportMiddlewarePipeline _pipeline;
   late final RestAdapter _rest;
 
   @override
@@ -125,13 +146,18 @@ class GraphqlAdapter extends TransportAdapter {
         operation: operation.document,
         headers: operation.headers,
         body: operation.toJson(),
+        abortTrigger: operation.abortTrigger,
       ),
     );
     return GraphqlResponse.fromTransport(response);
   }
 
   @override
-  Future<TransportResponse> send(TransportRequest request) async {
+  Future<TransportResponse> send(TransportRequest request) {
+    return _pipeline.send(request, _send);
+  }
+
+  Future<TransportResponse> _send(TransportRequest request) async {
     final operation = request.operation;
     Object? body = request.body;
     if (body == null && operation != null) body = {'query': operation};

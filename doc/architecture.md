@@ -15,10 +15,11 @@ flowchart LR
     Registry --> GQL["GraphqlAdapter"]
     Registry --> SSE["SseAdapter"]
     Registry --> HAL["HateoasAdapter"]
-    REST --> HTTP["Injected http.Client"]
-    GQL --> HTTP
-    SSE --> HTTP
-    HAL --> HTTP
+    REST --> MW["TransportMiddleware pipeline"]
+    GQL --> MW
+    SSE --> MW
+    HAL --> MW
+    MW --> HTTP["Injected http.Client / abort trigger"]
 ```
 
 ## Visual axis
@@ -51,11 +52,19 @@ response or that HATEOAS is a wire protocol separate from HTTP. The registry
 provides discovery and routing; protocol-specific adapters keep their native
 APIs.
 
+Each built-in adapter owns a middleware pipeline. A shared middleware list can
+therefore add authentication context, correlation IDs, metrics, or request
+policy once while the terminal adapter still owns GraphQL envelopes, SSE
+streams, and hypermedia relations. `TransportRequest.abortTrigger` follows the
+request through that same chain to an abort-capable HTTP client.
+
 ## Extension points
 
 - Construct adapters with an external `http.Client` for retries, tracing,
   native networking, testing, or certificate policy.
 - Use `headerProvider` for short-lived authentication headers.
+- Use `TransportMiddleware` for behavior that must compose across protocols.
+- Complete `abortTrigger` when an application lifecycle event should stop work.
 - Subclass `TransportAdapter` and register a replacement with
   `register(adapter, replace: true)`.
 - Build domain repositories above the adapters; widgets should consume domain

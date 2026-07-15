@@ -12,6 +12,7 @@ export 'src/atomic/pages/astryx_showcase_page.dart';
 export 'src/atomic/templates/astryx_dashboard_template.dart';
 export 'src/data/core/framework.dart';
 export 'src/data/core/transport.dart';
+export 'src/data/core/transport_middleware.dart';
 export 'src/data/core/transport_registry.dart';
 export 'src/data/graphql/graphql_adapter.dart';
 export 'src/data/hateoas/hateoas_adapter.dart';

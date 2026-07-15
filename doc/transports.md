@@ -9,6 +9,7 @@ final framework = AstryxFramework.standard(
   sseBaseUri: Uri.parse('https://events.example.com/'),
   hateoasBaseUri: Uri.parse('https://api.example.com/'),
   headerProvider: () async => {'authorization': await tokenProvider()},
+  middleware: [correlationIdMiddleware],
 );
 ```
 
@@ -26,6 +27,8 @@ final response = await framework.rest.post(
 
 response.ensureSuccess();
 final order = response.requireJsonObject();
+
+final typedOrder = response.decode(Order.fromJsonBody);
 ```
 
 Non-2xx responses remain inspectable. Call `ensureSuccess()` when your boundary
@@ -51,6 +54,8 @@ if (result.hasErrors) {
     log(error.message);
   }
 }
+
+final order = result.parseData(Order.fromGraphqlData);
 ```
 
 This adapter covers GraphQL queries and mutations over HTTP. It intentionally
@@ -64,7 +69,15 @@ the registry.
 await for (final event in framework.sse.connect(
   '/events',
   queryParameters: {'topic': 'orders'},
-  maxReconnectAttempts: 5,
+  reconnectPolicy: const SseReconnectPolicy(
+    maxAttempts: 5,
+    mode: SseBackoffMode.exponential,
+    initialDelay: Duration(seconds: 1),
+    maxDelay: Duration(seconds: 20),
+  ),
+  onReconnect: (attempt) => log(
+    'Reconnect ${attempt.attempt} after ${attempt.delay}',
+  ),
 )) {
   final payload = event.decodeJson();
   log('${event.id}: $payload');
@@ -74,6 +87,9 @@ await for (final event in framework.sse.connect(
 The SSE adapter incrementally decodes UTF-8, joins repeated `data:` lines,
 ignores comments, tracks `id`, honors `retry`, and sends `Last-Event-ID` after
 a reconnect. Set `reconnect: false` for finite or test streams.
+`reconnect` and `maxReconnectAttempts` remain available as shorthand. An
+explicit `SseReconnectPolicy` takes precedence and counts consecutive failed
+connections; receiving an event resets the failure count.
 
 ## HATEOAS and HAL
 
@@ -96,6 +112,7 @@ final response = await framework.hateoas.send(
   ),
 );
 final document = framework.hateoas.document(response);
+final orders = document.embeddedList('orders', Order.fromJson);
 final next = await framework.hateoas.follow(
   document,
   'next',
@@ -105,6 +122,35 @@ final next = await framework.hateoas.follow(
 
 URI template support currently covers simple path variables (`{id}`) and query
 expressions (`{?page,size}` / `{&cursor}`).
+
+## Cancellation
+
+Completing a request's abort trigger asks supported HTTP clients to stop at any
+point in the request/response lifecycle:
+
+```dart
+final abort = Completer<void>();
+final pending = framework.rest.get('/slow', abortTrigger: abort.future);
+
+abort.complete();
+
+try {
+  await pending;
+} on TransportAbortedException {
+  // Intentional cancellation is distinct from network failure.
+}
+```
+
+The same field is available on `GraphqlOperation`, `SseAdapter.connect`, and
+`HateoasAdapter.follow`. SSE aborts also interrupt reconnect delays and are not
+retried.
+
+## Middleware
+
+`TransportMiddleware.intercept` handles request/response transports and
+`interceptStream` handles streaming. Default implementations pass through, so
+a middleware can opt into only the lifecycle it needs. Middleware should avoid
+logging authorization headers or raw sensitive response bodies.
 
 ## Testing
 
